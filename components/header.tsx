@@ -14,7 +14,6 @@ import {
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
 import { useTheme } from '@/lib/hooks/use-theme';
-import { LanguageSwitcher } from './language-switcher';
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { SettingsDialog } from './settings';
@@ -98,10 +97,6 @@ export function Header({ currentSceneTitle }: HeaderProps) {
         </div>
 
         <div className="flex items-center gap-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm shrink-0">
-          {/* Language Selector */}
-          <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
-
-          <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
 
           {/* Theme Selector */}
           <div className="relative" ref={themeRef}>

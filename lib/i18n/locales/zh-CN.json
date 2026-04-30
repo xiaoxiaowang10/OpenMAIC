@@ -6,7 +6,7 @@
     "loading": "加载中..."
   },
   "home": {
-    "slogan": "Generative Learning in Multi-Agent Interactive Classroom",
+    "slogan": "AI 课件生成平台 —— 输入知识点，一键生成课件与视频",
     "greetingWithName": "嗨，{{name}}"
   },
   "toolbar": {
@@ -305,7 +305,7 @@
   "upload": {
     "pdfSizeLimit": "支持最大50MB的PDF文件",
     "generateFailed": "生成课堂失败，请重试",
-    "requirementPlaceholder": "输入你想学的任何内容，例如：\n「从零学 Python，30 分钟写出第一个程序」\n「用白板给我讲解傅里叶变换」\n「阿瓦隆桌游怎么玩」",
+    "requirementPlaceholder": "输入您要教学的内容，例如：\n\n「高一数学：三角函数的图像与变换，制作PPT课件 + 动画演示」\n「高二物理：牛顿第二定律，生成实验模拟和讲解视频」\n「高中语文《赤壁赋》：全文解析 + 作者背景 + 互动问答课件」\n「高三化学复习：氧化还原反应配平，带例题和阶梯练习」",
     "requirementRequired": "请输入课程需求",
     "fileTooLarge": "文件过大，请选择小于50MB的PDF文件"
   },
@@ -913,7 +913,7 @@
   },
   "profile": {
     "title": "个人资料",
-    "defaultNickname": "同学",
+    "defaultNickname": "老师",
     "chooseAvatar": "选择头像",
     "uploadAvatar": "上传",
     "bioPlaceholder": "介绍一下自己，AI老师会根据你的背景个性化教学...",

@@ -18,9 +18,9 @@ const inter = localFont({
 });
 
 export const metadata: Metadata = {
-  title: 'OpenMAIC',
+  title: '学府',
   description:
-    'The open-source AI interactive classroom. Upload a PDF to instantly generate an immersive, multi-agent learning experience.',
+    '学府 —— 面向高中教师的 AI 课件生成平台。输入知识点或上传教材，一键生成教学课件、演示视频与互动内容。让备课更高效，授课更生动。',
 };
 
 export default function RootLayout({
@@ -29,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={inter.variable} suppressHydrationWarning>
+    <html lang="zh-CN" className={inter.variable} suppressHydrationWarning>
       <body
         className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
         suppressHydrationWarning

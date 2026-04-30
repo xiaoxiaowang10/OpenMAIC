@@ -20,12 +20,10 @@ import {
   BotOff,
   ChevronUp,
   Upload,
-  Sparkles,
   Atom,
   X,
 } from 'lucide-react';
 import { useI18n } from '@/lib/hooks/use-i18n';
-import { LanguageSwitcher } from '@/components/language-switcher';
 import { createLogger } from '@/lib/logger';
 import { Button } from '@/components/ui/button';
 import { InputGroup, InputGroupInput, InputGroupButton } from '@/components/ui/input-group';
@@ -75,6 +73,29 @@ const initialFormState: FormState = {
   webSearch: false,
   interactiveMode: false,
 };
+
+const SUBJECT_CHIPS = [
+  {
+    label: '高一数学',
+    prompt: '高一数学：三角函数的图像与变换，制作PPT课件 + 动画演示',
+  },
+  {
+    label: '高二物理',
+    prompt: '高二物理：牛顿第二定律，生成实验模拟和讲解视频',
+  },
+  {
+    label: '高三化学',
+    prompt: '高三化学复习：氧化还原反应配平，带例题和阶梯练习',
+  },
+  {
+    label: '高中语文',
+    prompt: '高中语文《赤壁赋》：全文解析 + 作者背景 + 互动问答课件',
+  },
+  {
+    label: '高中英语',
+    prompt: '高中英语：定语从句专题复习，生成例句讲解、随堂练习和情境对话',
+  },
+];
 
 function HomePage() {
   const { t } = useI18n();
@@ -361,6 +382,12 @@ function HomePage() {
     }
   };
 
+  const handleSubjectChip = (prompt: string) => {
+    updateForm('requirement', prompt);
+    setError(null);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  };
+
   return (
     <div className="min-h-[100dvh] w-full bg-gradient-to-b from-slate-50 to-slate-100 dark:from-slate-950 dark:to-slate-900 flex flex-col items-center p-4 pt-16 md:p-8 md:pt-16 overflow-x-hidden">
       <input
@@ -375,11 +402,6 @@ function HomePage() {
         ref={toolbarRef}
         className="fixed top-4 right-4 z-50 flex items-center gap-1 bg-white/60 dark:bg-gray-800/60 backdrop-blur-md px-2 py-1.5 rounded-full border border-gray-100/50 dark:border-gray-700/50 shadow-sm"
       >
-        {/* Language Selector */}
-        <LanguageSwitcher onOpen={() => setThemeOpen(false)} />
-
-        <div className="w-[1px] h-4 bg-gray-200 dark:bg-gray-700" />
-
         {/* Theme Selector */}
         <div className="relative">
           <button
@@ -485,8 +507,8 @@ function HomePage() {
       >
         {/* ── Logo ── */}
         <motion.img
-          src="/logo-horizontal.png"
-          alt="OpenMAIC"
+          src="/xuefu_logo.png"
+          alt="学府"
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{
@@ -498,12 +520,22 @@ function HomePage() {
           className="h-12 md:h-16 mb-2 -ml-2 md:-ml-3"
         />
 
-        {/* ── Slogan ── */}
+        {/* ── 主标题 ── */}
+        {/* <motion.h1
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.2 }}
+          className="text-xl md:text-2xl font-bold text-foreground/90 mt-1"
+        >
+          学府
+        </motion.h1> */}
+
+        {/* ── 副标题 ── */}
         <motion.p
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 0.25 }}
-          className="text-sm text-muted-foreground/60 mb-8"
+          className="text-sm text-muted-foreground/60 mt-1 mb-8"
         >
           {t('home.slogan')}
         </motion.p>
@@ -534,6 +566,19 @@ function HomePage() {
               onKeyDown={handleKeyDown}
               rows={4}
             />
+
+            <div className="px-4 pb-2 flex flex-wrap gap-1.5">
+              {SUBJECT_CHIPS.map((chip) => (
+                <button
+                  key={chip.label}
+                  type="button"
+                  onClick={() => handleSubjectChip(chip.prompt)}
+                  className="h-7 rounded-full border border-border/60 bg-background/55 px-2.5 text-[12px] font-medium text-muted-foreground hover:border-primary/40 hover:bg-primary/5 hover:text-foreground active:scale-[0.98] transition-all"
+                >
+                  {chip.label}
+                </button>
+              ))}
+            </div>
 
             {/* Toolbar row */}
             <div className="px-3 pb-3 flex items-end gap-2">
@@ -812,7 +857,7 @@ function HomePage() {
 
       {/* Footer — flows with content, at the very end */}
       <div className="mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">
-        OpenMAIC Open Source Project
+        学府 · 开源 AI 备课工具
       </div>
     </div>
   );
