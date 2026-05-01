@@ -5,7 +5,9 @@ export interface QualityCourse {
   subject?: string;
   grade?: string;
   sceneCount?: number;
-  zipUrl: string;
+  zipUrl?: string;
+  baseUrl?: string;
+  courseUrl?: string;
   size?: number;
   updatedAt?: number;
 }

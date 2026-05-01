@@ -71,6 +71,9 @@ next-env.d.ts
 /data
 /logs
 
+# quality courses generated from source .maic.zip files
+/public/quality-courses/generated/
+
 # docs
 /docs
 # Eval results
