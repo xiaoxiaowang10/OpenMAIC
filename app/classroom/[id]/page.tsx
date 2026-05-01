@@ -12,6 +12,10 @@ import { useWhiteboardHistoryStore } from '@/lib/store/whiteboard-history';
 import { createLogger } from '@/lib/logger';
 import { MediaStageProvider } from '@/lib/contexts/media-stage-context';
 import { generateMediaForOutlines } from '@/lib/media/media-orchestrator';
+import { loadQualityCourseForPlayback } from '@/lib/quality-courses/load-quality-course';
+import { parseQualityCourseRouteId } from '@/lib/quality-courses/route-id';
+import { getActionsForRole } from '@/lib/orchestration/registry/types';
+import type { TTSProviderId } from '@/lib/audio/types';
 
 const log = createLogger('Classroom');
 
@@ -25,6 +29,14 @@ export default function ClassroomDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   const generationStartedRef = useRef(false);
+  const qualityCourseObjectUrlsRef = useRef<string[]>([]);
+
+  const revokeQualityCourseObjectUrls = useCallback(() => {
+    for (const url of qualityCourseObjectUrlsRef.current) {
+      URL.revokeObjectURL(url);
+    }
+    qualityCourseObjectUrlsRef.current = [];
+  }, []);
 
   const { generateRemaining, retrySingleOutline, stop } = useSceneGenerator({
     onComplete: () => {
@@ -34,6 +46,62 @@ export default function ClassroomDetailPage() {
 
   const loadClassroom = useCallback(async () => {
     try {
+      const qualityCourseId = parseQualityCourseRouteId(classroomId);
+      if (qualityCourseId) {
+        revokeQualityCourseObjectUrls();
+
+        const loaded = await loadQualityCourseForPlayback(qualityCourseId, classroomId);
+        qualityCourseObjectUrlsRef.current = loaded.objectUrls;
+
+        useStageStore.setState((state) => ({
+          stage: loaded.stage,
+          scenes: loaded.scenes,
+          currentSceneId: loaded.scenes[0]?.id ?? null,
+          chats: [],
+          outlines: [],
+          generatingOutlines: [],
+          failedOutlines: [],
+          generationStatus: 'idle' as const,
+          currentGeneratingOrder: -1,
+          generationEpoch: state.generationEpoch + 1,
+        }));
+        useMediaGenerationStore.setState({ tasks: loaded.mediaTasks });
+
+        const { useAgentRegistry } = await import('@/lib/orchestration/registry/store');
+        const registry = useAgentRegistry.getState();
+        for (const agent of registry.listAgents()) {
+          if (agent.isGenerated) registry.deleteAgent(agent.id);
+        }
+        for (const agent of loaded.agents) {
+          const { voiceConfig, ...agentConfig } = agent;
+          registry.addAgent({
+            ...agentConfig,
+            allowedActions: getActionsForRole(agent.role),
+            isDefault: false,
+            isGenerated: true,
+            boundStageId: loaded.stage.id,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            ...(voiceConfig
+              ? {
+                  voiceConfig: {
+                    providerId: voiceConfig.providerId as TTSProviderId,
+                    voiceId: voiceConfig.voiceId,
+                  },
+                }
+              : {}),
+          });
+        }
+
+        const { useSettingsStore } = await import('@/lib/store/settings');
+        if (loaded.agents.length > 0) {
+          useSettingsStore.getState().setAgentMode('auto');
+          useSettingsStore.getState().setSelectedAgentIds(loaded.agents.map((agent) => agent.id));
+        }
+
+        return;
+      }
+
       await loadFromStorage(classroomId);
 
       // If IndexedDB had no data, try server-side storage (API-generated classrooms)
@@ -102,7 +170,7 @@ export default function ClassroomDetailPage() {
     } finally {
       setLoading(false);
     }
-  }, [classroomId, loadFromStorage]);
+  }, [classroomId, loadFromStorage, revokeQualityCourseObjectUrls]);
 
   useEffect(() => {
     // Reset loading state on course switch to unmount Stage during transition,
@@ -125,9 +193,10 @@ export default function ClassroomDetailPage() {
 
     // Cancel ongoing generation when classroomId changes or component unmounts
     return () => {
+      revokeQualityCourseObjectUrls();
       stop();
     };
-  }, [classroomId, loadClassroom, stop]);
+  }, [classroomId, loadClassroom, revokeQualityCourseObjectUrls, stop]);
 
   // Auto-resume generation for pending outlines
   useEffect(() => {

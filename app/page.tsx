@@ -19,6 +19,8 @@ import {
   Monitor,
   BotOff,
   ChevronUp,
+  PlayCircle,
+  Sparkles,
   Upload,
   Atom,
   X,
@@ -53,6 +55,8 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 import { useDraftCache } from '@/lib/hooks/use-draft-cache';
 import { SpeechButton } from '@/components/audio/speech-button';
 import { useImportClassroom } from '@/lib/import/use-import-classroom';
+import type { QualityCourse } from '@/lib/quality-courses/types';
+import { getQualityCourseRouteId } from '@/lib/quality-courses/route-id';
 
 const log = createLogger('Home');
 
@@ -97,6 +101,13 @@ const SUBJECT_CHIPS = [
   },
 ];
 
+function formatFileSize(size?: number) {
+  if (!size) return '';
+  const mb = size / 1024 / 1024;
+  if (mb >= 1) return `${mb.toFixed(mb >= 10 ? 0 : 1)} MB`;
+  return `${Math.max(1, Math.round(size / 1024))} KB`;
+}
+
 function HomePage() {
   const { t } = useI18n();
   const { theme, setTheme } = useTheme();
@@ -124,7 +135,6 @@ function HomePage() {
   };
 
   // Hydrate client-only state after mount (avoids SSR mismatch)
-  /* eslint-disable react-hooks/set-state-in-effect -- Hydration from localStorage must happen in effect */
   useEffect(() => {
     try {
       const saved = localStorage.getItem(RECENT_OPEN_STORAGE_KEY);
@@ -145,7 +155,6 @@ function HomePage() {
       /* localStorage unavailable */
     }
   }, []);
-  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Restore requirement draft from cache (derived state pattern — no effect needed)
   const [prevCachedRequirement, setPrevCachedRequirement] = useState(cachedRequirement);
@@ -161,6 +170,8 @@ function HomePage() {
   const [classrooms, setClassrooms] = useState<StageListItem[]>([]);
   const [thumbnails, setThumbnails] = useState<Record<string, Slide>>({});
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
+  const [qualityCourses, setQualityCourses] = useState<QualityCourse[]>([]);
+  const [qualityCoursesLoading, setQualityCoursesLoading] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -194,11 +205,28 @@ function HomePage() {
     }
   };
 
-  const { importing, fileInputRef, triggerFileSelect, handleFileChange } = useImportClassroom(
-    () => {
+  const { importing, fileInputRef, triggerFileSelect, handleFileChange } =
+    useImportClassroom(() => {
       loadClassrooms();
-    },
-  );
+    });
+
+  const loadQualityCourses = async () => {
+    setQualityCoursesLoading(true);
+    try {
+      const res = await fetch('/api/quality-courses', { cache: 'no-store' });
+      if (!res.ok) {
+        setQualityCourses([]);
+        return;
+      }
+      const data = (await res.json()) as { courses?: QualityCourse[] };
+      setQualityCourses(Array.isArray(data.courses) ? data.courses : []);
+    } catch (err) {
+      log.error('Failed to load quality courses:', err);
+      setQualityCourses([]);
+    } finally {
+      setQualityCoursesLoading(false);
+    }
+  };
 
   useEffect(() => {
     // Clear stale media store to prevent cross-course thumbnail contamination.
@@ -207,8 +235,8 @@ function HomePage() {
     useMediaGenerationStore.getState().revokeObjectUrls();
     useMediaGenerationStore.setState({ tasks: {} });
 
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- Store hydration on mount
     loadClassrooms();
+    loadQualityCourses();
   }, []);
 
   const handleDelete = (id: string, e: React.MouseEvent) => {
@@ -854,6 +882,105 @@ function HomePage() {
           </AnimatePresence>
         </motion.div>
       )}
+
+      {/* Quality courses */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.55 }}
+        className="relative z-10 mt-10 w-full max-w-6xl flex flex-col items-center"
+      >
+        <div className="group w-full flex items-center gap-4 py-2">
+          <div className="flex-1 h-px bg-border/40 group-hover:bg-border/70 transition-colors" />
+          <div className="shrink-0 flex items-center gap-2 text-[13px] text-muted-foreground/60 select-none">
+            <Sparkles className="size-3.5" />
+            {t('qualityCourses.title')}
+            {qualityCourses.length > 0 && (
+              <span className="text-[11px] tabular-nums opacity-60">{qualityCourses.length}</span>
+            )}
+          </div>
+          <div className="flex-1 h-px bg-border/40 group-hover:bg-border/70 transition-colors" />
+        </div>
+
+        {qualityCoursesLoading ? (
+          <div className="pt-8 pb-2 text-center text-[13px] text-muted-foreground/60">
+            {t('common.loading')}
+          </div>
+        ) : qualityCourses.length === 0 ? (
+          <div className="pt-8 pb-2 text-center text-[13px] text-muted-foreground/60">
+            {t('qualityCourses.empty')}
+          </div>
+        ) : (
+          <div className="pt-8 w-full grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {qualityCourses.map((course, i) => {
+              const meta = [course.subject, course.grade].filter(Boolean).join(' · ');
+              const size = formatFileSize(course.size);
+
+              return (
+                <motion.button
+                  key={course.id}
+                  type="button"
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{
+                    delay: i * 0.04,
+                    duration: 0.35,
+                    ease: 'easeOut',
+                  }}
+                  onClick={() => router.push(`/classroom/${getQualityCourseRouteId(course.id)}`)}
+                  className={cn(
+                    'group/course relative min-h-40 rounded-xl border border-border/60 bg-white/75 dark:bg-slate-900/75 p-4 text-left backdrop-blur-xl shadow-sm transition-all',
+                    'hover:border-primary/30 hover:shadow-lg hover:shadow-black/[0.04] dark:hover:shadow-black/20',
+                    'cursor-pointer active:scale-[0.99]',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="shrink-0 size-8 rounded-lg bg-primary/8 text-primary flex items-center justify-center ring-1 ring-primary/10">
+                        <Sparkles className="size-4" />
+                      </span>
+                      <div className="min-w-0">
+                        {meta && (
+                          <div className="text-[11px] font-medium text-muted-foreground/60 truncate">
+                            {meta}
+                          </div>
+                        )}
+                        <h3 className="mt-0.5 text-[15px] font-semibold text-foreground/90 line-clamp-2">
+                          {course.name}
+                        </h3>
+                      </div>
+                    </div>
+                  </div>
+
+                  {course.description && (
+                    <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground/65 line-clamp-3">
+                      {course.description}
+                    </p>
+                  )}
+
+                  <div className="mt-4 flex items-center justify-between gap-3 text-[11px] text-muted-foreground/55">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {typeof course.sceneCount === 'number' && (
+                        <span className="shrink-0">
+                          {t('qualityCourses.sceneCount', { count: course.sceneCount })}
+                        </span>
+                      )}
+                      {size && (
+                        <span className="truncate">{t('qualityCourses.fileSize', { size })}</span>
+                      )}
+                    </div>
+
+                    <span className="shrink-0 inline-flex h-7 items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 text-[12px] font-medium shadow-sm opacity-90 transition-opacity group-hover/course:opacity-100">
+                      <PlayCircle className="size-3.5" />
+                      {t('qualityCourses.watch')}
+                    </span>
+                  </div>
+                </motion.button>
+              );
+            })}
+          </div>
+        )}
+      </motion.div>
 
       {/* Footer — flows with content, at the very end */}
       <div className="mt-auto pt-12 pb-4 text-center text-xs text-muted-foreground/40">

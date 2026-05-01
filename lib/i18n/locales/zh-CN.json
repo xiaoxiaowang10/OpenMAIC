@@ -54,6 +54,14 @@
       "storageFull": "导入失败：浏览器存储空间已满，请清理旧课堂后重试。"
     }
   },
+  "qualityCourses": {
+    "title": "精品课程",
+    "empty": "暂无精品课程",
+    "watch": "直接观看",
+    "loadFailed": "精品课程加载失败，请稍后重试",
+    "sceneCount": "{{count}} 个ppt",
+    "fileSize": "{{size}}"
+  },
   "chat": {
     "lecture": "授课",
     "noConversations": "暂无对话",

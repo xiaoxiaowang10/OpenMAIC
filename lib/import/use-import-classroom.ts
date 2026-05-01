@@ -30,14 +30,8 @@ export function useImportClassroom(onSuccess?: () => void) {
     fileInputRef.current?.click();
   }, []);
 
-  const handleFileChange = useCallback(
-    async (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-
-      // Reset input so same file can be re-selected
-      e.target.value = '';
-
+  const importFile = useCallback(
+    async (file: File) => {
       setImporting(true);
       setPhase('parsing');
       const toastId = toast.loading(t('import.parsing'));
@@ -237,11 +231,25 @@ export function useImportClassroom(onSuccess?: () => void) {
     [t, onSuccess],
   );
 
+  const handleFileChange = useCallback(
+    async (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      // Reset input so same file can be re-selected
+      e.target.value = '';
+
+      await importFile(file);
+    },
+    [importFile],
+  );
+
   return {
     importing,
     phase,
     fileInputRef,
     triggerFileSelect,
     handleFileChange,
+    importFile,
   };
 }

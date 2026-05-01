@@ -4,6 +4,7 @@ import { createSelectors } from '@/lib/utils/create-selectors';
 import type { ChatSession } from '@/lib/types/chat';
 import type { SceneOutline } from '@/lib/types/generation';
 import { createLogger } from '@/lib/logger';
+import { isQualityCourseRouteId } from '@/lib/quality-courses/route-id';
 
 const log = createLogger('StageStore');
 
@@ -251,6 +252,9 @@ const useStageStoreBase = create<StageState>()((set, get) => ({
     const { stage, scenes, currentSceneId, chats } = get();
     if (!stage?.id) {
       log.warn('Cannot save: stage.id is required');
+      return;
+    }
+    if (isQualityCourseRouteId(stage.id)) {
       return;
     }
 
