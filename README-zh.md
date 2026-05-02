@@ -305,6 +305,7 @@ export default defineCloudflareConfig();
     "build:quality-courses": "node scripts/build-quality-courses.mjs",
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "upload:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
   }
 }
@@ -317,6 +318,22 @@ export default defineCloudflareConfig();
 - 脚本会生成 `public/quality-courses/generated/index.json` 和课程静态资源。
 - 运行时网页只请求 `index.json`、`course.json`、`scenes/*.json`、`audio/*`、`media/*`。
 - 运行时不会请求完整 `.maic.zip`。
+
+Cloudflare 控制台使用 Git 部署时，字段填写如下：
+
+```text
+路径 / Root directory: .
+构建命令 / Build command: pnpm build:cloudflare
+部署命令 / Deploy command: pnpm opennextjs-cloudflare deploy
+非生产分支部署命令 / Non-production branch deploy command: pnpm opennextjs-cloudflare upload
+```
+
+说明：
+
+- `pnpm build:cloudflare` 会先执行项目的 `build` 脚本，因此会自动运行 `build-quality-courses` 并生成精品课程静态资源。
+- 生产分支使用 `deploy`，会发布为当前正式 Worker 版本。
+- 非生产分支使用 `upload`，只上传 Worker 版本，适合分支预览或人工后续提升版本。
+- 如果在本地命令行手动部署，可直接运行 `pnpm deploy:cloudflare`；如果只是上传非生产版本，可运行 `pnpm upload:cloudflare`。
 
 #### 5. 添加或更新本地课程
 

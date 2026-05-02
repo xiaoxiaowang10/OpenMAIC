@@ -13,6 +13,7 @@
     "build": "node scripts/build-quality-courses.mjs && next build",
     "build:cloudflare": "opennextjs-cloudflare build",
     "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "upload:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
     "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
     "start": "next start",
     "lint": "eslint",
