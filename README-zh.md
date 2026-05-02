@@ -203,6 +203,218 @@ ACCESS_CODE=your-secret-code
 3. 配置环境变量（至少一个 LLM API Key）
 4. 部署
 
+### Cloudflare 部署
+
+本项目是 **Next.js 16 + App Router + API Routes** 应用，不是纯静态站点。部署到 Cloudflare 时，推荐使用 **Cloudflare Workers + OpenNext for Cloudflare**。如果当前只需要展示仓库中保存的精品课程，不需要接入 R2：把课程 ZIP 放在仓库内，构建时解包成静态资源，网页运行时直接读取这些静态文件即可。
+
+官方参考：
+
+- [Cloudflare Workers - Next.js 框架指南](https://developers.cloudflare.com/workers/framework-guides/web-apps/nextjs/)
+- [OpenNext for Cloudflare](https://opennext.js.org/cloudflare)
+
+#### 当前部署目标
+
+当前目标只覆盖：
+
+- 首页展示本地保存的精品课程。
+- 点击精品课程后在网页内直接观看。
+- 课程资源来自仓库中的 `.maic.zip`。
+- 构建期自动解包 `.maic.zip`，运行时不下载完整 ZIP。
+- 不接入 R2、KV、D1 或其他对象存储。
+
+精品课程目录约定：
+
+```text
+public/quality-courses/source/
+  课程名称.maic.zip
+```
+
+构建时会自动生成：
+
+```text
+public/quality-courses/generated/
+  index.json
+  courses/
+    course-xxxx/
+      course.json
+      scenes/*.json
+      audio/*
+      media/*
+```
+
+`generated/` 是构建产物，已在 `.gitignore` 中忽略；Cloudflare 构建时会重新生成。
+
+#### 重要兼容性说明
+
+Cloudflare Workers 没有传统 Node.js 服务器的持久文件系统。当前“本地课程展示”方案不需要运行时写文件，课程资源在构建时已经变成静态文件，因此可以按静态资源读取。
+
+但以下能力不属于当前目标，如果要在 Cloudflare 上完整启用，需要后续再做存储适配：
+
+- 服务端异步生成课堂后的持久化分享。
+- 服务端生成图片、视频、音频后的长期保存。
+- 依赖 `server-providers.yml` 的运行时 YAML 配置读取。
+- `lib/server/classroom-storage.ts`、`lib/server/classroom-job-store.ts`、`lib/server/classroom-media-generation.ts`、`app/api/classroom-media/[classroomId]/[...path]/route.ts` 这类基于 Node `fs` 的服务端落盘逻辑。
+
+当前部署时请优先使用环境变量配置模型服务商，不要依赖 `server-providers.yml`。
+
+#### 1. 安装 Cloudflare 部署依赖
+
+```bash
+pnpm add -D @opennextjs/cloudflare wrangler
+```
+
+#### 2. 新增 `wrangler.jsonc`
+
+在项目根目录创建：
+
+```jsonc
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "openmaic",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-05-02",
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  }
+}
+```
+
+这里不需要配置 R2。精品课程静态资源会随 Cloudflare 构建产物一起发布。
+
+#### 3. 新增 `open-next.config.ts`
+
+在项目根目录创建：
+
+```ts
+import { defineCloudflareConfig } from '@opennextjs/cloudflare';
+
+export default defineCloudflareConfig();
+```
+
+当前不接入 R2，因此不启用 R2 incremental cache。
+
+#### 4. 调整 `package.json` 脚本
+
+保留当前精品课程构建脚本，并新增 Cloudflare 专用脚本：
+
+```json
+{
+  "scripts": {
+    "build:quality-courses": "node scripts/build-quality-courses.mjs",
+    "build:cloudflare": "opennextjs-cloudflare build",
+    "preview:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
+    "deploy:cloudflare": "opennextjs-cloudflare build && opennextjs-cloudflare deploy"
+  }
+}
+```
+
+说明：
+
+- `build:quality-courses` 会扫描 `public/quality-courses/source/*.maic.zip`。
+- 每个 ZIP 内必须有有效的 `manifest.json`。
+- 脚本会生成 `public/quality-courses/generated/index.json` 和课程静态资源。
+- 运行时网页只请求 `index.json`、`course.json`、`scenes/*.json`、`audio/*`、`media/*`。
+- 运行时不会请求完整 `.maic.zip`。
+
+#### 5. 添加或更新本地课程
+
+把新的课程 ZIP 放入：
+
+```text
+public/quality-courses/source/
+```
+
+本地验证解包：
+
+```bash
+pnpm build:quality-courses
+```
+
+然后检查：
+
+```text
+public/quality-courses/generated/index.json
+```
+
+如果课程没有出现，通常是 ZIP 内缺少 `manifest.json`，或 `manifest.stage` / `manifest.scenes` 不完整。
+
+#### 6. 配置环境变量
+
+Cloudflare Dashboard 路径：
+
+```text
+Workers & Pages -> 选择 Worker -> Settings -> Variables
+```
+
+至少配置一个模型服务商 API Key，例如：
+
+```env
+OPENAI_API_KEY=sk-...
+DEFAULT_MODEL=openai:gpt-5.5
+```
+
+可选配置：
+
+```env
+ACCESS_CODE=your-secret-code
+ANTHROPIC_API_KEY=...
+GOOGLE_API_KEY=...
+MINIMAX_API_KEY=...
+TAVILY_API_KEY=...
+```
+
+不要把 `.env.local` 上传到仓库；Cloudflare 生产环境应使用 Dashboard 变量或 `wrangler secret put`。
+
+本地写入 secret 示例：
+
+```bash
+pnpm wrangler secret put OPENAI_API_KEY
+pnpm wrangler secret put ACCESS_CODE
+```
+
+#### 7. 本地构建和预览
+
+```bash
+pnpm build:cloudflare
+pnpm preview:cloudflare
+```
+
+OpenNext for Cloudflare 在 Windows 上对 symlink 支持不稳定。如果本地 Windows 构建出现 `EPERM: operation not permitted, symlink`，请在 WSL/Linux 或 Cloudflare 的 Linux 构建环境中运行同一命令。
+
+预览时重点检查：
+
+- 首页能正常加载。
+- `/api/quality-courses` 返回课程列表。
+- 点击精品课程后进入课堂页。
+- Network 面板没有 `.maic.zip` 请求。
+- Network 面板只出现 `course.json`、`scenes/*.json`、`audio/*`、`media/*` 等静态资源请求。
+- 课堂播放、语音、图片资源可以访问。
+
+#### 8. 部署到 Cloudflare
+
+登录 Cloudflare：
+
+```bash
+pnpm wrangler login
+```
+
+部署：
+
+```bash
+pnpm deploy:cloudflare
+```
+
+部署完成后，Cloudflare 会输出 Worker 访问地址。需要自定义域名时，在 Cloudflare Dashboard 中为该 Worker 添加 Route 或 Custom Domain。
+
+#### 9. 常见问题
+
+- **精品课程为空**：确认 `public/quality-courses/source/` 中有 `.maic.zip`，并且 Cloudflare 构建日志里出现 `build-quality-courses` 输出。
+- **进入课程时请求了 `.maic.zip`**：说明仍在使用旧的运行时 ZIP 加载逻辑，应确认 `lib/quality-courses/load-quality-course.ts` 已改为读取 `course.json` 和 `scenes/*.json`。
+- **图片或音频 404**：先本地运行 `pnpm build:quality-courses`，检查 `generated/courses/*/audio` 和 `generated/courses/*/media` 是否生成完整。
+- **模型调用失败**：检查 Cloudflare 环境变量是否配置，变量名是否和 `.env.example` 一致。
+- **服务端分享课堂不可用**：这是服务端持久化能力，当前本地课程展示目标不覆盖；后续需要再设计 Workers 可用的持久化方案。
 ### Docker 部署
 
 ```bash

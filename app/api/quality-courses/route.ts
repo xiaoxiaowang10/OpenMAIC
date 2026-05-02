@@ -1,25 +1,22 @@
-import { NextResponse } from 'next/server';
-import { readFile } from 'fs/promises';
-import path from 'path';
+import { NextRequest, NextResponse } from 'next/server';
 import type { QualityCoursesResponse } from '@/lib/quality-courses/types';
 import type { StaticQualityCoursesIndex } from '@/lib/quality-courses/static-course-types';
 
 export const dynamic = 'force-dynamic';
-export const runtime = 'nodejs';
 
-const QUALITY_COURSES_INDEX = path.join(
-  process.cwd(),
-  'public',
-  'quality-courses',
-  'generated',
-  'index.json',
-);
+const QUALITY_COURSES_INDEX_PATH = '/quality-courses/generated/index.json';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const index = JSON.parse(
-      await readFile(QUALITY_COURSES_INDEX, 'utf8'),
-    ) as StaticQualityCoursesIndex;
+    const response = await fetch(new URL(QUALITY_COURSES_INDEX_PATH, request.url), {
+      cache: 'no-store',
+    });
+
+    if (!response.ok) {
+      return NextResponse.json({ courses: [] } satisfies QualityCoursesResponse);
+    }
+
+    const index = (await response.json()) as StaticQualityCoursesIndex;
 
     const body: QualityCoursesResponse = {
       courses: Array.isArray(index.courses) ? index.courses : [],

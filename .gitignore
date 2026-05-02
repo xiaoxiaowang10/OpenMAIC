@@ -29,6 +29,7 @@ CLAUDE.local.md
 
 # next.js
 /.next/
+/.open-next/
 /out/
 
 # production
@@ -55,6 +56,10 @@ server-providers-*.yml
 
 # vercel
 .vercel
+
+# cloudflare
+.wrangler/
+.dev.vars*
 
 # typescript
 *.tsbuildinfo
