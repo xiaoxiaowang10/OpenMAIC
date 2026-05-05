@@ -18,8 +18,14 @@ export async function GET(request: NextRequest) {
 
     const index = (await response.json()) as StaticQualityCoursesIndex;
 
+    const coursesWithThumbnail = Array.isArray(index.courses) ? index.courses.map(course => ({
+      ...course,
+      // Construct first scene URL: baseUrl + '/scenes/000.json'
+      firstSceneUrl: course.baseUrl ? `${course.baseUrl}/scenes/000.json` : undefined,
+    })) : [];
+
     const body: QualityCoursesResponse = {
-      courses: Array.isArray(index.courses) ? index.courses : [],
+      courses: coursesWithThumbnail,
     };
     return NextResponse.json(body);
   } catch {

@@ -10,6 +10,8 @@ export interface QualityCourse {
   courseUrl?: string;
   size?: number;
   updatedAt?: number;
+  /** URL to the first scene JSON, used for thumbnail preview */
+  firstSceneUrl?: string;
 }
 
 export interface QualityCoursesResponse {

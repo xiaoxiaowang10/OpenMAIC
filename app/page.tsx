@@ -172,6 +172,7 @@ function HomePage() {
   const [pendingDeleteId, setPendingDeleteId] = useState<string | null>(null);
   const [qualityCourses, setQualityCourses] = useState<QualityCourse[]>([]);
   const [qualityCoursesLoading, setQualityCoursesLoading] = useState(false);
+  const [qualityThumbnails, setQualityThumbnails] = useState<Record<string, Slide>>({});
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -219,7 +220,30 @@ function HomePage() {
         return;
       }
       const data = (await res.json()) as { courses?: QualityCourse[] };
-      setQualityCourses(Array.isArray(data.courses) ? data.courses : []);
+      const courses = Array.isArray(data.courses) ? data.courses : [];
+      setQualityCourses(courses);
+
+      // Load thumbnails for courses that have firstSceneUrl
+      const thumbnailsMap: Record<string, Slide> = {};
+      await Promise.all(
+        courses.map(async (course) => {
+          if (course.firstSceneUrl) {
+            try {
+              const sceneRes = await fetch(course.firstSceneUrl);
+              if (sceneRes.ok) {
+                const sceneData = await sceneRes.json();
+                const slide = sceneData?.scene?.content?.canvas as Slide;
+                if (slide) {
+                  thumbnailsMap[course.id] = slide;
+                }
+              }
+            } catch (err) {
+              log.warn(`Failed to load thumbnail for quality course ${course.id}:`, err);
+            }
+          }
+        })
+      );
+      setQualityThumbnails(thumbnailsMap);
     } catch (err) {
       log.error('Failed to load quality courses:', err);
       setQualityCourses([]);
@@ -915,6 +939,7 @@ function HomePage() {
             {qualityCourses.map((course, i) => {
               const meta = [course.subject, course.grade].filter(Boolean).join(' · ');
               const size = formatFileSize(course.size);
+              const thumbSlide = qualityThumbnails[course.id];
 
               return (
                 <motion.button
@@ -929,17 +954,33 @@ function HomePage() {
                   }}
                   onClick={() => router.push(`/classroom/${getQualityCourseRouteId(course.id)}`)}
                   className={cn(
-                    'group/course relative min-h-40 rounded-xl border border-border/60 bg-white/75 dark:bg-slate-900/75 p-4 text-left backdrop-blur-xl shadow-sm transition-all',
+                    'group/course relative rounded-xl border border-border/60 bg-white/75 dark:bg-slate-900/75 backdrop-blur-xl shadow-sm transition-all',
                     'hover:border-primary/30 hover:shadow-lg hover:shadow-black/[0.04] dark:hover:shadow-black/20',
                     'cursor-pointer active:scale-[0.99]',
                   )}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <span className="shrink-0 size-8 rounded-lg bg-primary/8 text-primary flex items-center justify-center ring-1 ring-primary/10">
-                        <Sparkles className="size-4" />
-                      </span>
-                      <div className="min-w-0">
+                  {/* Thumbnail area - 16:9 aspect ratio */}
+                  <div className="relative w-full overflow-hidden rounded-t-xl bg-slate-100 dark:bg-slate-800/80">
+                    <div className="aspect-video w-full">
+                      {thumbSlide ? (
+                        <ThumbnailSlide
+                          slide={thumbSlide}
+                          size={400}
+                          viewportSize={thumbSlide.viewportSize ?? 1000}
+                          viewportRatio={thumbSlide.viewportRatio ?? 0.5625}
+                        />
+                      ) : (
+                        <div className="flex h-full items-center justify-center">
+                          <Sparkles className="size-8 text-muted-foreground/30" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Content area */}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0 flex-1">
                         {meta && (
                           <div className="text-[11px] font-medium text-muted-foreground/60 truncate">
                             {meta}
@@ -950,30 +991,30 @@ function HomePage() {
                         </h3>
                       </div>
                     </div>
-                  </div>
 
-                  {course.description && (
-                    <p className="mt-3 text-[12px] leading-relaxed text-muted-foreground/65 line-clamp-3">
-                      {course.description}
-                    </p>
-                  )}
+                    {course.description && (
+                      <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground/65 line-clamp-2">
+                        {course.description}
+                      </p>
+                    )}
 
-                  <div className="mt-4 flex items-center justify-between gap-3 text-[11px] text-muted-foreground/55">
-                    <div className="flex items-center gap-2 min-w-0">
-                      {typeof course.sceneCount === 'number' && (
-                        <span className="shrink-0">
-                          {t('qualityCourses.sceneCount', { count: course.sceneCount })}
-                        </span>
-                      )}
-                      {size && (
-                        <span className="truncate">{t('qualityCourses.fileSize', { size })}</span>
-                      )}
+                    <div className="mt-3 flex items-center justify-between gap-3 text-[11px] text-muted-foreground/55">
+                      <div className="flex items-center gap-2 min-w-0">
+                        {typeof course.sceneCount === 'number' && (
+                          <span className="shrink-0">
+                            {t('qualityCourses.sceneCount', { count: course.sceneCount })}
+                          </span>
+                        )}
+                        {size && (
+                          <span className="truncate">{t('qualityCourses.fileSize', { size })}</span>
+                        )}
+                      </div>
+
+                      {/* <span className="shrink-0 inline-flex h-7 items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 text-[12px] font-medium shadow-sm opacity-90 transition-opacity group-hover/course:opacity-100">
+                        <PlayCircle className="size-3.5" />
+                        {t('qualityCourses.watch')}
+                      </span> */}
                     </div>
-
-                    <span className="shrink-0 inline-flex h-7 items-center gap-1.5 rounded-full bg-primary text-primary-foreground px-3 text-[12px] font-medium shadow-sm opacity-90 transition-opacity group-hover/course:opacity-100">
-                      <PlayCircle className="size-3.5" />
-                      {t('qualityCourses.watch')}
-                    </span>
                   </div>
                 </motion.button>
               );
